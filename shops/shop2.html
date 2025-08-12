@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>shop2 - Shop Page</title>
+  <link rel="stylesheet" href="/static/shop.css">
+</head>
+<body>
+  <div class="shop-container">
+    <div class="shop-header">
+      <h1>Welcome to shop2</h1>
+      <p>Storage: shop2</p>
+    </div>
+
+    <h2>🛍️ Products</h2>
+    
+      <p>No products yet.</p>
+    
+
+    <hr>
+    <h3>📋 Staff</h3>
+    <ul>
+      
+    </ul>
+  </div>
+
+  <script>
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('customer-email').value;
+      const inputs = document.querySelectorAll('[name^="quantity_"]');
+
+      const items = Array.from(inputs).map(input => {
+        const qty = parseInt(input.value);
+        if (qty && qty > 0) {
+          const product_id = input.name.split('_')[1];
+          return { product_id: parseInt(product_id), quantity: qty };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (items.length === 0) {
+        alert('Please select at least one product to order.');
+        return;
+      }
+
+      const res = await fetch('/commerce/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_email: email, items })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Order placed!');
+        document.getElementById('order-form').reset();
+      } else {
+        alert(data.error || 'Order failed');
+      }
+    });
+  </script>
+</body>
+</html>
