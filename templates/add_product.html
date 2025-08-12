@@ -1,0 +1,40 @@
+<!-- templates/add_product.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Product</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+    <h1>Add a New Product</h1>
+    <form id="product-form">
+        <input type="text" id="name" placeholder="Product Name" required><br>
+        <textarea id="description" placeholder="Description (optional)"></textarea><br>
+        <input type="number" id="price" placeholder="Price" step="0.01" required><br>
+        <button type="submit">Add Product</button>
+    </form>
+
+    <script>
+        document.getElementById('product-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+            const price = parseFloat(document.getElementById('price').value);
+
+            const res = await fetch('/product/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, price })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message);
+                e.target.reset();
+            } else {
+                alert(result.message || 'Error adding product');
+            }
+        });
+    </script>
+</body>
+</html>

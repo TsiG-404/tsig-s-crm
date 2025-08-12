@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Support Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+
+</head>
+<body>
+  <h1>Welcome, Support {{ user.name }}</h1>
+
+  <section>
+    <h2>🔓 Logout</h2>
+    <a href="/auth/login">Logout</a>
+    
+  </section>
+
+  <section>
+    <h2>🎫 Your Support Tickets</h2>
+    <ul id="tickets-list">
+      <li>Loading tickets...</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>➕ Create Support Ticket</h2>
+    <form id="ticket-form">
+      <input type="text" id="subject" placeholder="Subject" required><br>
+      <textarea id="description" placeholder="Describe the issue" required></textarea><br>
+      <input type="email" id="customer_email" placeholder="Customer Email" required><br>
+      <button type="submit">Create Ticket</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>🔍 Customer Profile Lookup</h2>
+    <form id="profile-form">
+      <input type="email" id="profile-email" placeholder="Enter Customer Email" required>
+      <button type="submit">View Profile</button>
+    </form>
+    <div id="customer-profile"></div>
+  </section>
+
+  <section>
+    <h2>📦 Available Products</h2>
+    <ul id="product-list">
+      <li>Loading products...</li>
+    </ul>
+  </section>
+
+  <script>
+    // Logout
+    document.getElementById('logout-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    // Load support tickets
+    async function loadTickets() {
+      const res = await fetch('/service/tickets');
+      if (!res.ok) {
+        document.getElementById('tickets-list').innerHTML = '<li>Failed to load tickets.</li>';
+        return;
+      }
+      const tickets = await res.json();
+      if (tickets.length === 0) {
+        document.getElementById('tickets-list').innerHTML = '<li>No tickets found.</li>';
+        return;
+      }
+      document.getElementById('tickets-list').innerHTML = tickets.map(t => `
+        <li><strong>${t.subject}</strong> - ${t.status} <br>Customer: ${t.customer_email}<br>${t.description}</li>
+      `).join('');
+    }
+    loadTickets();
+
+    // Create support ticket
+    document.getElementById('ticket-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const subject = document.getElementById('subject').value;
+      const description = document.getElementById('description').value;
+      const customer_email = document.getElementById('customer_email').value;
+      const res = await fetch('/service/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, description, customer_email })
+      });
+      if (res.ok) {
+        alert('Ticket created!');
+        e.target.reset();
+        loadTickets();
+      } else {
+        alert('Failed to create ticket.');
+      }
+    });
+
+    // Customer profile lookup
+    document.getElementById('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = document.getElementById('profile-email').value;
+      const res = await fetch(`/crm/customers/${encodeURIComponent(email)}`);
+      if (!res.ok) {
+        alert('Customer not found');
+        return;
+      }
+      const profile = await res.json();
+      const profileDiv = document.getElementById('customer-profile');
+      profileDiv.innerHTML = `
+        <h3>${profile.name || 'N/A'}</h3>
+        <p><strong>Email:</strong> ${profile.email}</p>
+        <p><strong>Phone:</strong> ${profile.phone || 'N/A'}</p>
+        <p><strong>Address:</strong> ${profile.address || 'N/A'}</p>
+        <p><strong>Orders:</strong> ${profile.orders?.length || 0}</p>
+        <p><strong>Experiences:</strong> ${profile.experiences?.length || 0}</p>
+      `;
+    });
+
+    // Load available products
+    async function loadProducts() {
+      const res = await fetch('/commerce/products');
+      if (!res.ok) {
+        document.getElementById('product-list').innerHTML = '<li>Failed to load products.</li>';
+        return;
+      }
+      const products = await res.json();
+      if (products.length === 0) {
+        document.getElementById('product-list').innerHTML = '<li>No products available.</li>';
+        return;
+      }
+      document.getElementById('product-list').innerHTML = products.map(p => `
+        <li>${p.name} - $${p.price.toFixed(2)} - Stock: ${p.stock}</li>
+      `).join('');
+    }
+    loadProducts();
+  </script>
+</body>
+</html>

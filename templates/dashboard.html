@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>CRM Dashboard</h1>
+
+    <h2>📊 Analytics</h2>
+    <div id="analytics">
+      <p>Loading analytics...</p>
+    </div>
+
+    <h2>🎫 Create Support Ticket</h2>
+    <form id="ticket-form">
+      <input type="text" id="subject" placeholder="Subject" required><br>
+      <textarea id="description" placeholder="Describe the issue" required></textarea><br>
+      <input type="email" id="customer_email" placeholder="Customer Email" required><br>
+      <button type="submit">Create Ticket</button>
+    </form>
+
+    <h2>🔓 Logout</h2>
+    <form id="logout-form">
+      <button type="submit">Logout</button>
+    </form>
+
+
+    <h2>📧 Create Marketing Campaign</h2>
+    <form id="campaign-form">
+  <input type="text" id="campaign-name" placeholder="Campaign Name" required><br>
+  <textarea id="campaign-content" placeholder="Email content" required></textarea><br>
+  <input type="text" id="target-segment" placeholder="Segment (optional)"><br>
+  <button type="submit">Create Campaign</button>
+    </form>
+
+    <h3>📬 Existing Campaigns</h3>
+    <ul id="campaign-list"></ul>
+
+
+
+    <h2>🛒 Available Products</h2>
+    <ul id="product-list"></ul>
+
+
+    <h2>🛒 Place New Order</h2>
+<form id="order-form">
+  <input type="email" id="order-email" placeholder="Customer Email" required><br>
+  <div id="product-checkboxes"></div>
+  <button type="submit">Place Order</button>
+</form>
+
+
+<h2>📦 Manage Stock</h2>
+<form id="stock-form">
+  <input type="text" id="new-prod-name" placeholder="Product Name" required><br>
+  <input type="number" id="new-prod-price" placeholder="Price" step="0.01" required><br>
+  <input type="number" id="new-prod-stock" placeholder="Initial Stock" required><br>
+  <button type="submit">Add Product</button>
+</form>
+
+
+<h2>🧾 Log Customer Experience</h2>
+<form id="experience-form">
+  <input type="email" id="exp-email" placeholder="Customer Email" required><br>
+  <select id="exp-type">
+    <option value="call">Call</option>
+    <option value="email">Email</option>
+    <option value="support">Support</option>
+    <option value="demo">Demo</option>
+  </select><br>
+  <textarea id="exp-notes" placeholder="Interaction notes..."></textarea><br>
+  <select id="exp-sentiment">
+    <option value="">-- Sentiment --</option>
+    <option value="positive">Positive</option>
+    <option value="neutral">Neutral</option>
+    <option value="negative">Negative</option>
+  </select><br>
+  <input type="number" id="exp-rating" min="1" max="5" placeholder="Rating (1-5)"><br>
+  <button type="submit">Log Experience</button>
+</form>
+
+<h3>📚 Experience History</h3>
+<ul id="experience-list"></ul>
+
+
+  </div>
+
+  <h2>🔍 Customer Profile Lookup</h2>
+    <form id="profile-form">
+      <input type="email" id="profile-email" placeholder="Enter Customer Email" required>
+      <button type="submit">View Profile</button>
+    </form>
+    <div id="customer-profile"></div>
+  </div>
+
+  <script>
+    // Handle ticket creation
+    document.getElementById('ticket-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const subject = document.getElementById('subject').value;
+      const description = document.getElementById('description').value;
+      const customer_email = document.getElementById('customer_email').value;
+
+      const res = await fetch('/service/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, description, customer_email })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Ticket created!');
+        document.getElementById('ticket-form').reset();
+      } else {
+        alert('Failed to create ticket: ' + data.message);
+      }
+    });
+
+    // Fetch and display analytics
+fetch('/analytics')
+  .then(res => res.json())
+  .then(data => {
+    const analyticsDiv = document.getElementById('analytics');
+    analyticsDiv.innerHTML = `
+      <p><strong>Total Leads:</strong> ${data.leads}</p>
+      <p><strong>Open Tickets:</strong> ${data.open_tickets}</p>
+      <p><strong>Opportunities by Stage:</strong></p>
+      <ul>
+        ${Object.entries(data.opportunities_by_stage).map(
+          ([stage, count]) => `<li>${stage}: ${count}</li>`
+        ).join('')}
+      </ul>
+      <p><strong>Total Sales:</strong> $${data.total_sales?.toFixed(2) || '0.00'}</p>
+    `;
+  });
+
+
+    // Handle logout
+    document.getElementById('logout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/auth/logout', { method: 'POST' });
+      if (res.ok) window.location.href = '/';
+      else alert('Logout failed');
+    });
+  </script>
+
+
+<script>
+    async function loadCampaigns() {
+      const res = await fetch('/marketing/campaigns');
+      const campaigns = await res.json();
+      const list = document.getElementById('campaign-list');
+      list.innerHTML = '';
+      campaigns.forEach(c => {
+        const li = document.createElement('li');
+        li.innerHTML = `${c.name} (${c.sent_count} sent)
+          <button onclick="sendCampaign(${c.id})">Send</button>`;
+        list.appendChild(li);
+      });
+    }
+  
+    document.getElementById('campaign-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('campaign-name').value;
+      const content = document.getElementById('campaign-content').value;
+      const target_segment = document.getElementById('target-segment').value;
+      await fetch('/marketing/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content, target_segment })
+      });
+      loadCampaigns();
+    });
+  
+    async function sendCampaign(id) {
+      await fetch(`/marketing/campaigns/${id}/send`, { method: 'POST' });
+      alert('Campaign sent!');
+      loadCampaigns();
+    }
+  
+    loadCampaigns();
+  </script>
+
+
+
+  
+<script>
+    async function loadProducts() {
+      const res = await fetch('/commerce/products');
+      const products = await res.json();
+      const list = document.getElementById('product-list');
+      list.innerHTML = products.map(p =>
+        `<li>${p.name} - $${p.price} (Stock: ${p.stock})</li>`
+      ).join('');
+    }
+  
+    loadProducts();
+
+
+    // Load products as checkboxes
+async function loadProductCheckboxes() {
+  const res = await fetch('/commerce/products');
+  const products = await res.json();
+  const container = document.getElementById('product-checkboxes');
+  container.innerHTML = products.map(p => `
+    <label>
+      <input type="number" min="0" id="prod-${p.id}" placeholder="Qty" style="width: 60px;"> ${p.name} ($${p.price}) - Stock: ${p.stock}
+    </label><br>
+  `).join('');
+}
+
+// Submit order
+document.getElementById('order-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const customer_email = document.getElementById('order-email').value;
+
+  const res = await fetch('/commerce/products');
+  const products = await res.json();
+
+  const items = products.map(p => {
+    const qty = parseInt(document.getElementById(`prod-${p.id}`).value);
+    if (qty && qty > 0) return { product_id: p.id, quantity: qty };
+    return null;
+  }).filter(Boolean);
+
+  if (items.length === 0) {
+    alert('Please select at least one product');
+    return;
+  }
+
+  const result = await fetch('/commerce/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customer_email, items })
+  });
+
+  const data = await result.json();
+  if (result.ok) {
+    alert('Order placed!');
+    document.getElementById('order-form').reset();
+    loadProducts();
+    loadProductCheckboxes();
+  } else {
+    alert(data.error || 'Order failed');
+  }
+});
+
+loadProductCheckboxes();
+
+
+
+document.getElementById('stock-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('new-prod-name').value;
+  const price = parseFloat(document.getElementById('new-prod-price').value);
+  const stock = parseInt(document.getElementById('new-prod-stock').value);
+
+  await fetch('/commerce/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price, stock })
+  });
+
+  alert('Product added!');
+  document.getElementById('stock-form').reset();
+  loadProducts();
+  loadProductCheckboxes();
+});
+
+
+
+document.getElementById('experience-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const log = {
+    customer_email: document.getElementById('exp-email').value,
+    interaction_type: document.getElementById('exp-type').value,
+    notes: document.getElementById('exp-notes').value,
+    sentiment: document.getElementById('exp-sentiment').value,
+    rating: parseInt(document.getElementById('exp-rating').value) || null
+  };
+
+  await fetch('/experience', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(log)
+  });
+
+  alert('Experience logged!');
+  document.getElementById('experience-form').reset();
+  loadExperience();
+});
+
+async function loadExperience() {
+  const res = await fetch('/experience');
+  const logs = await res.json();
+  const list = document.getElementById('experience-list');
+  list.innerHTML = logs.map(log => `
+    <li>
+      <strong>${log.interaction_type}</strong> with <em>${log.customer_email}</em> on ${new Date(log.created_at).toLocaleString()}
+      ${log.rating ? ` | Rating: ${log.rating}/5` : ''} 
+      ${log.sentiment ? ` | Sentiment: ${log.sentiment}` : ''}
+      <br>${log.notes}
+    </li>
+  `).join('');
+}
+
+loadExperience();
+
+
+  </script>
+
+<script>
+    let salesChartInstance, sentimentChartInstance;
+
+    function fetchAnalytics() {
+      fetch('/analytics')
+        .then(res => res.json())
+        .then(data => {
+          const analyticsDiv = document.getElementById('analytics');
+          analyticsDiv.innerHTML = `
+            <p><strong>Total Leads:</strong> ${data.leads}</p>
+            <p><strong>Open Tickets:</strong> ${data.open_tickets}</p>
+            <p><strong>Opportunities by Stage:</strong></p>
+            <ul>
+              ${Object.entries(data.opportunities_by_stage).map(
+                ([stage, count]) => `<li>${stage}: ${count}</li>`
+              ).join('')}
+            </ul>
+            <p><strong>Total Sales:</strong> $${data.total_sales?.toFixed(2) || '0.00'}</p>
+          `;
+
+          renderSalesChart(data.sales_by_day || {});
+          renderSentimentChart(data.sentiment_counts || {});
+        });
+    }
+
+    function renderSalesChart(salesData) {
+      if (salesChartInstance) salesChartInstance.destroy();
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(salesData),
+          datasets: [{
+            label: 'Sales per Day',
+            data: Object.values(salesData),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+          }]
+        }
+      });
+    }
+
+    function renderSentimentChart(sentimentCounts) {
+      if (sentimentChartInstance) sentimentChartInstance.destroy();
+      const ctx = document.getElementById('sentimentChart').getContext('2d');
+      sentimentChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(sentimentCounts),
+          datasets: [{
+            label: 'Sentiment',
+            data: Object.values(sentimentCounts),
+            backgroundColor: ['#4caf50', '#ff9800', '#f44336']
+          }]
+        }
+      });
+    }
+
+    fetchAnalytics();
+    setInterval(fetchAnalytics, 60000); // auto-refresh every 60 seconds
+
+    function refreshAfterAction() {
+      fetchAnalytics();
+      if (typeof loadExperience === 'function') loadExperience();
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('profile-email').value;
+      const res = await fetch(`/customer/profile?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      const div = document.getElementById('customer-profile');
+      if (res.ok) {
+        div.innerHTML = `
+          <h3>Customer Profile</h3>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Total Orders:</strong> ${data.total_orders}</p>
+          <p><strong>Total Spend:</strong> $${data.total_spent.toFixed(2)}</p>
+          <h4>Interactions:</h4>
+          <ul>
+            ${data.experiences.map(exp => `<li>${exp.interaction_type} (${exp.sentiment}) on ${new Date(exp.created_at).toLocaleString()} - ${exp.notes}</li>`).join('')}
+          </ul>
+        `;
+      } else {
+        div.innerHTML = '<p>Customer not found.</p>';
+      }
+    });
+  </script>
+  
+</body>
+</html>

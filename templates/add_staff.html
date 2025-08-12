@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Staff Member</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Add Staff Member</h1>
+    <form id="add-staff-form">
+      <label for="name">Name:</label><br>
+      <input type="text" id="name" required><br>
+
+      <label for="email">Email:</label><br>
+      <input type="email" id="email" required><br>
+
+      <label for="role">Role:</label><br>
+      <select id="role" required>
+        <option value="">-- Select Role --</option>
+        <option value="support">Support</option>
+        <option value="marketer">Marketer</option>
+        <option value="storager">Storager</option>
+      </select><br>
+
+      <label for="password">Password:</label><br>
+      <input type="password" id="password" required><br>
+
+      <button type="submit">Add Staff</button>
+    </form>
+
+    <p id="status"></p>
+  </div>
+
+  <script>
+    document.getElementById('add-staff-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const role = document.getElementById('role').value;
+      const password = document.getElementById('password').value;
+
+      const response = await fetch('/staff/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, role, password })
+      });
+
+      const result = await response.json();
+      const status = document.getElementById('status');
+      if (response.ok) {
+        status.textContent = 'Staff added successfully!';
+        document.getElementById('add-staff-form').reset();
+      } else {
+        status.textContent = 'Error: ' + result.message;
+      }
+    });
+  </script>
+</body>
+</html>

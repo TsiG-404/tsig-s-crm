@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Storager Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+
+</head>
+<body>
+  <h1>Welcome, Storager {{ user.name }}</h1>
+
+  <section>
+    <h2>🔓 Logout</h2>
+    <a href="/auth/login">Logout</a>
+    
+  </section>
+
+  <section>
+    <h2>📦 Available Products</h2>
+    <ul id="product-list">Loading products...</ul>
+  </section>
+
+  <section>
+    <h2>➕ Add New Product</h2>
+    <form id="product-form">
+      <input type="text" id="product-name" placeholder="Product Name" required><br>
+      <input type="number" id="product-price" placeholder="Price" step="0.01" required><br>
+      <input type="number" id="product-stock" placeholder="Initial Stock" required><br>
+      <button type="submit">Add Product</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>🛒 Place Order</h2>
+    <form id="order-form">
+      <input type="email" id="order-email" placeholder="Customer Email" required><br>
+      <div id="product-checkboxes">Loading products...</div>
+      <button type="submit">Place Order</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>🧾 Customer Reviews & Experience Logs</h2>
+    <ul id="experience-list">Loading experiences...</ul>
+  </section>
+
+  <section>
+    <h2>🔍 Customer Profile Lookup</h2>
+    <form id="profile-form">
+      <input type="email" id="profile-email" placeholder="Enter Customer Email" required>
+      <button type="submit">View Profile</button>
+    </form>
+    <div id="customer-profile"></div>
+  </section>
+
+  <script>
+    // Logout
+    document.getElementById('logout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    // Load products
+    async function loadProducts() {
+      const res = await fetch('/commerce/products');
+      const products = await res.json();
+      document.getElementById('product-list').innerHTML = products.map(p =>
+        `<li>${p.name} - $${p.price} (Stock: ${p.stock})</li>`
+      ).join('');
+
+      document.getElementById('product-checkboxes').innerHTML = products.map(p => `
+        <label>
+          <input type="number" min="0" id="prod-${p.id}" placeholder="Qty" style="width: 60px;"> ${p.name} ($${p.price}) - Stock: ${p.stock}
+        </label><br>
+      `).join('');
+    }
+
+    loadProducts();
+
+    // Add product
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('product-name').value;
+      const price = parseFloat(document.getElementById('product-price').value);
+      const stock = parseInt(document.getElementById('product-stock').value);
+
+      await fetch('/commerce/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price, stock })
+      });
+
+      alert('Product added!');
+      e.target.reset();
+      loadProducts();
+    });
+
+    // Place order
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('order-email').value;
+      const res = await fetch('/commerce/products');
+      const products = await res.json();
+
+      const items = products.map(p => {
+        const qty = parseInt(document.getElementById(`prod-${p.id}`).value);
+        if (qty > 0) return { product_id: p.id, quantity: qty };
+        return null;
+      }).filter(Boolean);
+
+      if (items.length === 0) return alert('Please enter quantity for at least one product.');
+
+      const orderRes = await fetch('/commerce/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_email: email, items })
+      });
+
+      if (orderRes.ok) {
+        alert('Order placed!');
+        e.target.reset();
+        loadProducts();
+      } else {
+        alert('Failed to place order.');
+      }
+    });
+
+    // Load experiences
+    async function loadExperience() {
+      const res = await fetch('/experience');
+      const logs = await res.json();
+      const list = document.getElementById('experience-list');
+      list.innerHTML = logs.map(log => `
+        <li>
+          <strong>${log.interaction_type}</strong> with <em>${log.customer_email}</em> on ${new Date(log.created_at).toLocaleString()}
+          ${log.rating ? ` | Rating: ${log.rating}/5` : ''} 
+          ${log.sentiment ? ` | Sentiment: ${log.sentiment}` : ''}
+          <br>${log.notes}
+        </li>
+      `).join('');
+    }
+
+    loadExperience();
+
+    // Profile lookup
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('profile-email').value;
+      const res = await fetch(`/customer/profile?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      const div = document.getElementById('customer-profile');
+      if (res.ok) {
+        div.innerHTML = `
+          <h3>Customer Profile</h3>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Total Orders:</strong> ${data.total_orders}</p>
+          <p><strong>Total Spend:</strong> $${data.total_spent.toFixed(2)}</p>
+          <h4>Interactions:</h4>
+          <ul>
+            ${data.experiences.map(exp => `<li>${exp.interaction_type} (${exp.sentiment}) on ${new Date(exp.created_at).toLocaleString()} - ${exp.notes}</li>`).join('')}
+          </ul>
+        `;
+      } else {
+        div.innerHTML = '<p>Customer not found.</p>';
+      }
+    });
+  </script>
+</body>
+</html>

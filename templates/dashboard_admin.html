@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="/static/dashboard.css">
+
+    <title>Admin Dashboard</title>
+</head>
+<body>
+    <h1>Welcome, Admin {{ user.name }}</h1>
+
+    <div>
+        <h2>Admin Dashboard</h2>
+        <ul>
+            <li><a href="/admin/shops">View All Shops</a></li>
+            <li><a href="/admin/users">View All Users</a></li>
+            <li><a href="/admin/products">View All Products</a></li>
+            <li><a href="/admin/tickets">View All Support Tickets</a></li>
+            <li><a href="/admin/orders">View All Orders</a></li>
+        </ul>
+    </div>
+    <section>
+        <h2>🔓 Logout</h2>
+        <a href="/auth/login">Logout</a>
+        
+      </section>
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shop Owner Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- For analytics charts -->
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome, {{ user.name }}</h1>
+
+    <section>
+      <h2>Your Shop</h2>
+      <p><strong>Shop Name:</strong> {{ user.shop.name }}</p>
+      <p><strong>Storage Name:</strong> {{ user.shop.storage_name }}</p>
+      <a href="/commerce/shop/{{ user.shop.id }}" target="_blank">View Public Shop Page</a>
+    </section>
+
+    <section>
+      <h2>Manage Your Shop</h2>
+      <ul>
+        <li><a href="/staff/add">Add Staff (Marketer, Support, Storager)</a></li>
+        <li><a href="/product/add">Add Product</a></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>📊 Analytics</h2>
+      <div id="analytics">
+        <p>Loading analytics...</p>
+      </div>
+      <canvas id="salesChart" width="400" height="150"></canvas>
+      <canvas id="sentimentChart" width="400" height="150"></canvas>
+    </section>
+
+    <section>
+      <h2>🎫 Create Support Ticket</h2>
+      <form id="ticket-form">
+        <input type="text" id="subject" placeholder="Subject" required><br>
+        <textarea id="description" placeholder="Describe the issue" required></textarea><br>
+        <input type="email" id="customer_email" placeholder="Customer Email" required><br>
+        <button type="submit">Create Ticket</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>📧 Create Marketing Campaign</h2>
+      <form id="campaign-form">
+        <input type="text" id="campaign-name" placeholder="Campaign Name" required><br>
+        <textarea id="campaign-content" placeholder="Email content" required></textarea><br>
+        <input type="text" id="target-segment" placeholder="Segment (optional)"><br>
+        <button type="submit">Create Campaign</button>
+      </form>
+      <h3>📬 Existing Campaigns</h3>
+      <ul id="campaign-list"></ul>
+    </section>
+
+    <section>
+      <h2>🛒 Available Products</h2>
+      <ul id="product-list"></ul>
+    </section>
+
+    <section>
+      <h2>🛒 Place New Order</h2>
+      <form id="order-form">
+        <input type="email" id="order-email" placeholder="Customer Email" required><br>
+        <div id="product-checkboxes"></div>
+        <button type="submit">Place Order</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>🧾 Log Customer Experience</h2>
+      <form id="experience-form">
+        <input type="email" id="exp-email" placeholder="Customer Email" required><br>
+        <select id="exp-type">
+          <option value="call">Call</option>
+          <option value="email">Email</option>
+          <option value="support">Support</option>
+          <option value="demo">Demo</option>
+        </select><br>
+        <textarea id="exp-notes" placeholder="Interaction notes..."></textarea><br>
+        <select id="exp-sentiment">
+          <option value="">-- Sentiment --</option>
+          <option value="positive">Positive</option>
+          <option value="neutral">Neutral</option>
+          <option value="negative">Negative</option>
+        </select><br>
+        <input type="number" id="exp-rating" min="1" max="5" placeholder="Rating (1-5)"><br>
+        <button type="submit">Log Experience</button>
+      </form>
+      <h3>📚 Experience History</h3>
+      <ul id="experience-list"></ul>
+    </section>
+
+    <section>
+      <h2>🔍 Customer Profile Lookup</h2>
+      <form id="profile-form">
+        <input type="email" id="profile-email" placeholder="Enter Customer Email" required>
+        <button type="submit">View Profile</button>
+      </form>
+      <div id="customer-profile"></div>
+    </section>
+
+    <section>
+      <h2>🔓 Logout</h2>
+      <a href="/auth/login">Logout</a>
+      
+    </section>
+  </div>
+
+  <script>
+    // ===== Analytics =====
+    async function fetchAnalytics() {
+      const res = await fetch('/analytics');
+      if (!res.ok) return;
+      const data = await res.json();
+      const analyticsDiv = document.getElementById('analytics');
+      analyticsDiv.innerHTML = `
+        <p><strong>Total Leads:</strong> ${data.leads}</p>
+        <p><strong>Open Tickets:</strong> ${data.open_tickets}</p>
+        <p><strong>Opportunities by Stage:</strong></p>
+        <ul>
+          ${Object.entries(data.opportunities_by_stage).map(([stage, count]) => `<li>${stage}: ${count}</li>`).join('')}
+        </ul>
+        <p><strong>Total Sales:</strong> $${data.total_sales?.toFixed(2) || '0.00'}</p>
+      `;
+      renderSalesChart(data.sales_by_day || {});
+      renderSentimentChart(data.sentiment_counts || {});
+    }
+
+    let salesChartInstance, sentimentChartInstance;
+
+    function renderSalesChart(salesData) {
+      if (salesChartInstance) salesChartInstance.destroy();
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(salesData),
+          datasets: [{
+            label: 'Sales per Day',
+            data: Object.values(salesData),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+          }]
+        }
+      });
+    }
+
+    function renderSentimentChart(sentimentCounts) {
+      if (sentimentChartInstance) sentimentChartInstance.destroy();
+      const ctx = document.getElementById('sentimentChart').getContext('2d');
+      sentimentChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(sentimentCounts),
+          datasets: [{
+            label: 'Sentiment',
+            data: Object.values(sentimentCounts),
+            backgroundColor: ['#4caf50', '#ff9800', '#f44336']
+          }]
+        }
+      });
+    }
+
+    fetchAnalytics();
+    setInterval(fetchAnalytics, 60000);
+
+    // ===== Support Ticket Creation =====
+    document.getElementById('ticket-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const subject = document.getElementById('subject').value;
+      const description = document.getElementById('description').value;
+      const customer_email = document.getElementById('customer_email').value;
+      const res = await fetch('/service/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, description, customer_email })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Ticket created!');
+        e.target.reset();
+        fetchAnalytics();
+      } else {
+        alert('Failed to create ticket: ' + data.message);
+      }
+    });
+
+    // ===== Marketing Campaigns =====
+    async function loadCampaigns() {
+      const res = await fetch('/marketing/campaigns');
+      if (!res.ok) return;
+      const campaigns = await res.json();
+      const list = document.getElementById('campaign-list');
+      list.innerHTML = '';
+      campaigns.forEach(c => {
+        const li = document.createElement('li');
+        li.innerHTML = `${c.name} (${c.sent_count} sent)
+          <button onclick="sendCampaign(${c.id})">Send</button>`;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('campaign-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = document.getElementById('campaign-name').value;
+      const content = document.getElementById('campaign-content').value;
+      const target_segment = document.getElementById('target-segment').value;
+      await fetch('/marketing/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content, target_segment })
+      });
+      e.target.reset();
+      loadCampaigns();
+    });
+
+    async function sendCampaign(id) {
+      await fetch(`/marketing/campaigns/${id}/send`, { method: 'POST' });
+      alert('Campaign sent!');
+      loadCampaigns();
+    }
+
+    loadCampaigns();
+
+    // ===== Products =====
+    async function loadProducts() {
+      const res = await fetch('/commerce/products');
+      if (!res.ok) return;
+      const products = await res.json();
+      const list = document.getElementById('product-list');
+      list.innerHTML = products.map(p => `<li>${p.name} - $${p.price.toFixed(2)} - Stock: ${p.stock}</li>`).join('');
+      const checkboxes = document.getElementById('product-checkboxes');
+      checkboxes.innerHTML = products.map(p => `
+        <label><input type="checkbox" name="product" value="${p.id}"> ${p.name}</label><br>
+      `).join('');
+    }
+
+    loadProducts();
+
+    // ===== Place Order =====
+    document.getElementById('order-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = document.getElementById('order-email').value;
+      const checkedProducts = [...document.querySelectorAll('#product-checkboxes input[name="product"]:checked')].map(cb => cb.value);
+      if (checkedProducts.length === 0) {
+        alert('Select at least one product.');
+        return;
+      }
+      const res = await fetch('/commerce/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, products: checkedProducts })
+      });
+      if (res.ok) {
+        alert('Order placed!');
+        e.target.reset();
+      } else {
+        alert('Failed to place order.');
+      }
+    });
+
+    // ===== Customer Experience Logging =====
+    async function loadExperiences() {
+      const res = await fetch('/crm/experiences');
+      if (!res.ok) return;
+      const experiences = await res.json();
+      const list = document.getElementById('experience-list');
+      list.innerHTML = experiences.map(exp => `
+        <li>
+          <strong>${exp.email}</strong>: ${exp.type}, Sentiment: ${exp.sentiment}, Rating: ${exp.rating}<br>
+          Notes: ${exp.notes}
+        </li>
+      `).join('');
+    }
+
+    document.getElementById('experience-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = document.getElementById('exp-email').value;
+      const type = document.getElementById('exp-type').value;
+      const notes = document.getElementById('exp-notes').value;
+      const sentiment = document.getElementById('exp-sentiment').value;
+      const rating = Number(document.getElementById('exp-rating').value) || null;
+      const res = await fetch('/crm/experiences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, type, notes, sentiment, rating })
+      });
+      if (res.ok) {
+        alert('Experience logged!');
+        e.target.reset();
+        loadExperiences();
+      } else {
+        alert('Failed to log experience.');
+      }
+    });
+
+    loadExperiences();
+
+    // ===== Customer Profile Lookup =====
+    document.getElementById('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = document.getElementById('profile-email').value;
+      const res = await fetch(`/crm/customers/${encodeURIComponent(email)}`);
+      if (!res.ok) {
+        alert('Customer not found');
+        return;
+      }
+      const profile = await res.json();
+      const profileDiv = document.getElementById('customer-profile');
+      profileDiv.innerHTML = `
+        <h4>${profile.name || 'N/A'}</h4>
+        <p>Email: ${profile.email}</p>
+        <p>Phone: ${profile.phone || 'N/A'}</p>
+        <p>Address: ${profile.address || 'N/A'}</p>
+        <p>Orders: ${profile.orders?.length || 0}</p>
+        <p>Experiences: ${profile.experiences?.length || 0}</p>
+      `;
+    });
+
+    // ===== Logout =====
+    document.getElementById('logout-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

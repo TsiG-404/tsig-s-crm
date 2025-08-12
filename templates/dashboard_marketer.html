@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Marketer Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+
+</head>
+<body>
+  <h1>Welcome, Marketer {{ user.name }}</h1>
+
+  
+    <section>
+        <h2>🔓 Logout</h2>
+        <a href="/auth/login">Logout</a>
+        
+      </section>
+  
+
+  <section>
+    <h2>📊 Your Campaigns</h2>
+    <ul id="campaigns-list">
+      <li>Loading campaigns...</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>➕ Create Campaign</h2>
+    <form id="campaign-form">
+      <input type="text" id="campaign-name" placeholder="Campaign Name" required><br>
+      <textarea id="campaign-description" placeholder="Campaign Description" required></textarea><br>
+      <button type="submit">Create Campaign</button>
+    </form>
+  </section>
+
+  <script>
+    // Logout handler
+    document.getElementById('logout-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    // Load campaigns from backend
+    async function loadCampaigns() {
+      const res = await fetch('/marketing/campaigns');
+      if (!res.ok) {
+        document.getElementById('campaigns-list').innerHTML = '<li>Failed to load campaigns.</li>';
+        return;
+      }
+      const campaigns = await res.json();
+      if (campaigns.length === 0) {
+        document.getElementById('campaigns-list').innerHTML = '<li>No campaigns found.</li>';
+        return;
+      }
+      document.getElementById('campaigns-list').innerHTML = campaigns.map(c => `
+        <li><strong>${c.name}</strong><br>${c.description}</li>
+      `).join('');
+    }
+    loadCampaigns();
+
+    // Create campaign
+    document.getElementById('campaign-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = document.getElementById('campaign-name').value;
+      const description = document.getElementById('campaign-description').value;
+      const res = await fetch('/marketing/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
+      });
+      if (res.ok) {
+        alert('Campaign created!');
+        e.target.reset();
+        loadCampaigns();
+      } else {
+        alert('Failed to create campaign.');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Customer Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome, {{ user.email }}</h1>
+
+    <!-- Profile Section -->
+    <h2>🧾 My Profile</h2>
+    <div id="profile-info">
+      <p><strong>Email:</strong> {{ user.email }}</p>
+      <p><strong>Total Orders:</strong> {{ user.total_orders }}</p>
+      <p><strong>Total Spent:</strong> ${{ user.total_spent }}</p>
+    </div>
+
+    <!-- Available Stores -->
+    <h2>🏬 Available Stores</h2>
+    <ul>
+      {% for shop in shops %}
+        <li><a href="/commerce/shop/{{ shop.id }}">{{ shop.name }}</a></li>
+      {% endfor %}
+    </ul>
+
+    <!-- Tickets -->
+    <h2>🎫 My Support Tickets</h2>
+    <ul id="my-tickets">
+      {% for ticket in tickets %}
+        <li><strong>{{ ticket.subject }}</strong> - {{ ticket.status }} ({{ ticket.created_at }})</li>
+      {% endfor %}
+    </ul>
+
+    <!-- Orders -->
+    <h2>🛍️ My Orders</h2>
+    <ul id="my-orders">
+      {% for order in orders %}
+        <li>Order #{{ order.id }} - ${{ order.total }} - {{ order.status }} ({{ order.created_at }})</li>
+      {% endfor %}
+    </ul>
+
+    <!-- Leave Review -->
+    <h2>⭐ Leave a Review</h2>
+    <form id="review-form">
+      <select id="review-product-id" required>
+        <option value="">-- Select Product --</option>
+        {% for product in products %}
+          <option value="{{ product.id }}">{{ product.name }}</option>
+        {% endfor %}
+      </select><br>
+      <input type="number" min="1" max="5" id="review-rating" placeholder="Rating (1-5)" required><br>
+      <textarea id="review-comment" placeholder="Your review..." required></textarea><br>
+      <button type="submit">Submit Review</button>
+    </form>
+
+    <!-- Logout -->
+    <section>
+        <h2>🔓 Logout</h2>
+        <a href="/auth/login">Logout</a>
+        
+      </section>
+  </div>
+
+  <script>
+    document.getElementById('logout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/auth/logout', { method: 'POST' });
+      if (res.ok) window.location.href = '/';
+      else alert('Logout failed');
+    });
+
+    document.getElementById('review-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const product_id = document.getElementById('review-product-id').value;
+      const rating = parseInt(document.getElementById('review-rating').value);
+      const comment = document.getElementById('review-comment').value;
+
+      const res = await fetch('/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id, rating, comment })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Review submitted!');
+        document.getElementById('review-form').reset();
+      } else {
+        alert(data.error || 'Failed to submit review');
+      }
+    });
+  </script>
+</body>
+</html>

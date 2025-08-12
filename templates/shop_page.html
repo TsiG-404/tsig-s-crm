@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ shop.name }} - Shop Page</title>
+  <link rel="stylesheet" href="/static/shop.css">
+</head>
+<body>
+  <div class="shop-container">
+    <div class="shop-header">
+      <h1>Welcome to {{ shop.name }}</h1>
+      <p>Storage: {{ shop.storage_name }}</p>
+    </div>
+
+    <h2>🛍️ Products</h2>
+    {% if products %}
+      <form id="order-form">
+        <input type="email" id="customer-email" placeholder="Your Email" required><br><br>
+
+        <div class="product-grid">
+          {% for product in products %}
+            <div class="product-card">
+              <h3>{{ product.name }}</h3>
+              <p>{{ product.description }}</p>
+              <p class="price">${{ "%.2f"|format(product.price) }}</p>
+              <label>
+                Quantity:
+                <input type="number" min="0" name="quantity_{{ product.id }}" placeholder="0" style="width: 60px;">
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+
+        <br>
+        <button type="submit">Place Order</button>
+      </form>
+    {% else %}
+      <p>No products yet.</p>
+    {% endif %}
+
+    <hr>
+    <h3>📋 Staff</h3>
+    <ul>
+      {% for staff in staff_list %}
+        <li>{{ staff.name }} ({{ staff.role }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <script>
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('customer-email').value;
+      const inputs = document.querySelectorAll('[name^="quantity_"]');
+
+      const items = Array.from(inputs).map(input => {
+        const qty = parseInt(input.value);
+        if (qty && qty > 0) {
+          const product_id = input.name.split('_')[1];
+          return { product_id: parseInt(product_id), quantity: qty };
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (items.length === 0) {
+        alert('Please select at least one product to order.');
+        return;
+      }
+
+      const res = await fetch('/commerce/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_email: email, items })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Order placed!');
+        document.getElementById('order-form').reset();
+      } else {
+        alert(data.error || 'Order failed');
+      }
+    });
+  </script>
+</body>
+</html>
